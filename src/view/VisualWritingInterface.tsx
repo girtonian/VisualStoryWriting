@@ -1,4 +1,4 @@
-import { Button, Tab, Tabs, Tooltip } from '@nextui-org/react';
+import { Button, Tab, Tabs, Tooltip, Switch } from '@nextui-org/react';
 import { ReactFlowProvider, useKeyPress } from '@xyflow/react';
 import React, { useEffect, useState } from 'react';
 import { FaTrashAlt } from 'react-icons/fa';
@@ -18,11 +18,13 @@ import TextEditor from './TextEditor';
 import ActionTimeline from './actionTimeline/ActionTimeline';
 import EntitiesEditor from './entityActionView/EntitiesEditor';
 import LocationsEditor from './locationView/LocationsEditor';
+import CurmunchkinsInterface from './curmunchkins/CurmunchkinsInterface';
 
 
 export default function VisualWritingInterface(props: { children?: React.ReactNode }) {
   const [isExtracting, setIsExtracting] = useState(false);
   const [selectedTab, setSelectedTab] = useState('entities');
+  const [isCurmunchkinsMode, setIsCurmunchkinsMode] = useState(false);
   const isStale = useModelStore(state => state.isStale);
   const isReadOnly = useModelStore(state => state.isReadOnly);
   const escapePressed = useKeyPress(["Escape"]);
@@ -60,19 +62,25 @@ export default function VisualWritingInterface(props: { children?: React.ReactNo
 
 
   useEffect(() => {
-    const center = { x: visualPanelRef.current!.clientWidth / 2, y: visualPanelRef.current!.clientHeight / 2 };
+    if (!visualPanelRef.current) return;
+    
+    const center = { x: visualPanelRef.current.clientWidth / 2, y: visualPanelRef.current.clientHeight / 2 };
 
     LayoutUtils.optimizeNodeLayout("entity", useModelStore.getState().entityNodes, useModelStore.getState().setEntityNodes, center, 120, 100);
     LayoutUtils.optimizeNodeLayout("location", useModelStore.getState().locationNodes, useModelStore.getState().setLocationNodes, center, 120);
   }, [selectedTab]);
 
   useEffect(() => {
-    const center = { x: visualPanelRef.current!.clientWidth / 2, y: visualPanelRef.current!.clientHeight / 2 };
+    if (!visualPanelRef.current) return;
+    
+    const center = { x: visualPanelRef.current.clientWidth / 2, y: visualPanelRef.current.clientHeight / 2 };
 
     // Make sure we update the layout everytime there is a refresh
     VisualRefresher.getInstance().onUpdate = () => {
-      LayoutUtils.optimizeNodeLayout("locations", useModelStore.getState().locationNodes, useModelStore.getState().setLocationNodes, { x: center.x, y: center.y }, 120);
-      LayoutUtils.optimizeNodeLayout("entity", useModelStore.getState().entityNodes, useModelStore.getState().setEntityNodes, { x: center.x, y: center.y }, 120, 100);
+      if (!visualPanelRef.current) return;
+      const currentCenter = { x: visualPanelRef.current.clientWidth / 2, y: visualPanelRef.current.clientHeight / 2 };
+      LayoutUtils.optimizeNodeLayout("locations", useModelStore.getState().locationNodes, useModelStore.getState().setLocationNodes, currentCenter, 120);
+      LayoutUtils.optimizeNodeLayout("entity", useModelStore.getState().entityNodes, useModelStore.getState().setEntityNodes, currentCenter, 120, 100);
     }
 
     VisualRefresher.getInstance().onRefreshDone = () => {
@@ -88,8 +96,27 @@ export default function VisualWritingInterface(props: { children?: React.ReactNo
     setSelectedTab(tab);
   }
 
+  // If Curmunchkins mode is active, show the Curmunchkins interface
+  if (isCurmunchkinsMode) {
+    return <CurmunchkinsInterface />;
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      {/* Mode Toggle Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 20px', background: '#f8f9fa', borderBottom: '1px solid #dee2e6' }}>
+        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>Visual Story Writing</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '14px', color: '#666' }}>Standard Mode</span>
+          <Switch
+            isSelected={isCurmunchkinsMode}
+            onValueChange={setIsCurmunchkinsMode}
+            size="sm"
+          />
+          <span style={{ fontSize: '14px', color: '#666' }}>Curmunchkins Mode</span>
+        </div>
+      </div>
+
       <div style={{ display: 'flex', flexDirection: 'row', flexGrow: 1, height: '80%' }}>
         {props.children}
         <TextEditor />
@@ -119,8 +146,9 @@ export default function VisualWritingInterface(props: { children?: React.ReactNo
             <Tooltip content="Refresh from text" closeDelay={0}>
               <Button style={{ fontSize: 22 }} color={isStale ? "primary": "default"} isLoading={isExtracting} isIconOnly radius={'full'}
                 onClick={() => {
+                  if (!visualPanelRef.current) return;
 
-                  const center = { x: visualPanelRef.current!.clientWidth / 2, y: visualPanelRef.current!.clientHeight / 2 };
+                  const center = { x: visualPanelRef.current.clientWidth / 2, y: visualPanelRef.current.clientHeight / 2 };
 
                   const visualRefreshCallback = () => {
                     VisualRefresher.getInstance().refreshFromText(useModelStore.getState().text,
